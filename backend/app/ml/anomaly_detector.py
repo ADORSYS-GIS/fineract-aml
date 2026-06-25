@@ -103,7 +103,7 @@ class AnomalyDetector:
         expected_n = getattr(self.scaler, "n_features_in_", None)
         if expected_n is not None and expected_n != features.shape[0]:
             logger.warning(
-                "Anomaly model feature mismatch (model=%s, input=%s) — returning 0.0; retrain needed",
+                "Anomaly model feature mismatch (model=%s, input=%s) — returning 0.0; retrain",
                 expected_n, features.shape[0],
             )
             return 0.0

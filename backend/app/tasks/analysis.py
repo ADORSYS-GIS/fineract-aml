@@ -43,7 +43,7 @@ async def _upsert_graph_edges(transaction, transaction_id: str) -> None:
             if gsession is not None:
                 await GraphClient(gsession).upsert_transaction(tx_to_graph_payload(transaction))
     except Exception:
-        logger.warning("Graph edge upsert failed for tx %s (non-fatal)", transaction_id, exc_info=True)
+        logger.warning("Graph upsert failed for tx %s (non-fatal)", transaction_id, exc_info=True)
 
 
 async def _graph_read(account_id: str) -> dict:

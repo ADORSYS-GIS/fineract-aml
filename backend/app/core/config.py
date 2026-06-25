@@ -143,9 +143,9 @@ class Settings(BaseSettings):
     graph_database_url: str = "bolt://localhost:7687"
     graph_database_user: str = ""                     # empty → anonymous (Memgraph default)
     graph_database_password: str = ""                 # set both (+ bolt+s:// URL) in production
-    graph_scoring_timeout_ms: int = 80                # bounded live-path budget (fail-open on timeout)
+    graph_scoring_timeout_ms: int = 80                # bounded live-path budget (fail-open)
     graph_k_hops: int = 2                             # guilt-by-association hop limit (max 3)
-    graph_score_weight: float = 0.15                  # weight of the graph term in the combined score
+    graph_score_weight: float = 0.15                  # weight of graph term in combined score
     graph_backfill_lookback_days: int = 30            # batch backfill window from Postgres
 
     # Shadow/canary ML deployment
