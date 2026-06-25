@@ -8,7 +8,7 @@ AML regulations (CEMAC/COBAC) require:
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.tasks.celery_app import celery_app
 
@@ -36,7 +36,7 @@ async def _enforce_retention():
     from app.models.transaction import Transaction
     from app.services.audit_service import AuditService
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     tx_cutoff = now - timedelta(days=TRANSACTION_RETENTION_YEARS * 365)
     screening_cutoff = now - timedelta(days=SCREENING_RETENTION_YEARS * 365)
 

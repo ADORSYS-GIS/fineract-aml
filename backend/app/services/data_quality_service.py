@@ -3,7 +3,7 @@
 import ipaddress
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.schemas.transaction import WebhookPayload
 
@@ -66,10 +66,10 @@ class DataQualityService:
         errors: list[str] = []
         warnings: list[str] = []
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         tx_date = payload.transaction_date
         if tx_date.tzinfo is None:
-            tx_date = tx_date.replace(tzinfo=timezone.utc)
+            tx_date = tx_date.replace(tzinfo=UTC)
 
         # 1. Timestamp sanity
         if tx_date > now + timedelta(seconds=_MAX_FUTURE_SECONDS):

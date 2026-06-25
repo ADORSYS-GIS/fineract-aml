@@ -1,7 +1,6 @@
 """Tests for the anomaly detector."""
 
 import numpy as np
-import pytest
 
 from app.ml.anomaly_detector import AnomalyDetector
 

@@ -18,7 +18,7 @@ Feature categories:
 
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 
@@ -91,7 +91,7 @@ class CreditFeatureExtractor:
             1D numpy array of shape (len(CREDIT_FEATURE_NAMES),).
         """
         features = []
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if not transactions:
             return np.zeros(len(CREDIT_FEATURE_NAMES))

@@ -22,12 +22,11 @@ import argparse
 import csv
 import random
 import uuid
-from datetime import datetime, timedelta, timezone
-from typing import Generator
+from datetime import UTC, datetime, timedelta
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _rnd_account() -> str:

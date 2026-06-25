@@ -1,6 +1,6 @@
 """Case management endpoints for the compliance dashboard."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -79,7 +79,7 @@ async def update_case_status(
     # COBAC audit trail — record who closed the case and when
     new_status = data.status.value if hasattr(data.status, "value") else str(data.status)
     if new_status.lower() in _TERMINAL_CASE_STATUSES:
-        case.closed_at = datetime.now(timezone.utc)
+        case.closed_at = datetime.now(UTC)
         case.closed_by = current_user.get("username") or current_user.get("sub")
         await db.flush()
 

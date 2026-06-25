@@ -14,7 +14,6 @@ Typical workflow:
 """
 
 import logging
-from pathlib import Path
 
 from app.tasks.celery_app import celery_app
 
@@ -32,9 +31,8 @@ def promote_shadow_model(self) -> dict:
         Dict with status, promoted_from, promoted_to paths.
     """
     try:
-        from app.core.config import settings
-        from app.ml.shadow_scorer import ShadowScorer
         from app.ml.fraud_classifier import FraudClassifier
+        from app.ml.shadow_scorer import ShadowScorer
 
         shadow = ShadowScorer()
         classifier = FraudClassifier()

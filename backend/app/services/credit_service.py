@@ -6,7 +6,7 @@ and the compliance review workflow for credit requests.
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -51,7 +51,7 @@ class CreditService:
         Returns:
             List of transactions ordered by date descending.
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff = datetime.now(UTC) - timedelta(days=days)
         result = await self.db.execute(
             select(Transaction)
             .where(Transaction.fineract_client_id == client_id)
@@ -88,7 +88,7 @@ class CreditService:
         )
         latest_date = result.scalar_one()
         if latest_date:
-            days_since = (datetime.now(timezone.utc) - latest_date).days
+            days_since = (datetime.now(UTC) - latest_date).days
         else:
             days_since = None
 
@@ -102,7 +102,7 @@ class CreditService:
         )
         first_date = result.scalar_one()
         if first_date:
-            return (datetime.now(timezone.utc) - first_date).days
+            return (datetime.now(UTC) - first_date).days
         return 0
 
     # ── Credit Profile Management ─────────────────────────────
@@ -197,7 +197,7 @@ class CreditService:
         )
         profile = result.scalar_one_or_none()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if profile:
             profile.credit_score = credit_score
             profile.segment = segment
@@ -283,7 +283,7 @@ class CreditService:
             return False
 
         # Sum deposits in last 7 days vs average weekly deposit over 30 days
-        cutoff_7d = datetime.now(timezone.utc) - timedelta(days=7)
+        cutoff_7d = datetime.now(UTC) - timedelta(days=7)
         recent_inflow = sum(
             t.amount for t in transactions
             if t.transaction_date >= cutoff_7d
@@ -516,7 +516,7 @@ et la justification de la recommandation pour le dossier de conformité."""
 
         request.status = status
         request.reviewed_by = reviewer_id
-        request.reviewed_at = datetime.now(timezone.utc)
+        request.reviewed_at = datetime.now(UTC)
         request.reviewer_notes = notes
 
         await self.db.flush()

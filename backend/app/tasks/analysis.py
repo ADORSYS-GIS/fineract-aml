@@ -106,9 +106,10 @@ def _build_score_explanation(
 
 async def _analyze(transaction_id: str):
     """Core analysis logic."""
+    from uuid import UUID
+
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-    from uuid import UUID
 
     from app.core.config import settings
     from app.features.extractor import FeatureExtractor
@@ -116,9 +117,8 @@ async def _analyze(transaction_id: str):
     from app.ml.fraud_classifier import FraudClassifier
     from app.models.alert import AlertSource
     from app.models.ctr import CTRStatus, CurrencyTransactionReport
-    from app.models.sanctions import ScreeningStatus
-    from app.models.transaction import RiskLevel
     from app.models.rule_match import RuleMatch
+    from app.models.sanctions import ScreeningStatus
     from app.models.transaction import Transaction
     from app.rules.engine import RuleEngine
     from app.services.sanctions_service import SanctionsScreeningService

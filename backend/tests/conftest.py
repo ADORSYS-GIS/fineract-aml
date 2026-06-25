@@ -2,7 +2,7 @@
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -18,7 +18,7 @@ class FakeTransaction:
     amount: float = 500.0
     currency: str = "USD"
     transaction_date: datetime = field(
-        default_factory=lambda: datetime(2025, 6, 15, 14, 30, tzinfo=timezone.utc)
+        default_factory=lambda: datetime(2025, 6, 15, 14, 30, tzinfo=UTC)
     )
     counterparty_account_id: str | None = None
     counterparty_name: str | None = None

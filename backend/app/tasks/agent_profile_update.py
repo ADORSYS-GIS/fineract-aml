@@ -7,7 +7,7 @@ agent-specific AML rules (agent_structuring, agent_float_anomaly, etc.).
 import json
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
@@ -37,7 +37,7 @@ async def _run_update():
     from app.models.transaction import Transaction
 
     async with AsyncSessionLocal() as db:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=_LOOKBACK_DAYS)
+        cutoff = datetime.now(UTC) - timedelta(days=_LOOKBACK_DAYS)
 
         # Fetch all agent transactions in the lookback window
         result = await db.execute(
@@ -84,7 +84,7 @@ async def _run_update():
             agent_profile.p95_tx_amount_30d = profile["p95_tx_amount"]
             agent_profile.peak_hour_distribution = json.dumps(profile["hour_distribution"])
             agent_profile.computed_from_days = _LOOKBACK_DAYS
-            agent_profile.last_updated = datetime.now(timezone.utc)
+            agent_profile.last_updated = datetime.now(UTC)
 
             updated += 1
 

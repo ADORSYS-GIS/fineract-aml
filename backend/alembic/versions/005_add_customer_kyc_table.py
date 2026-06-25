@@ -5,16 +5,17 @@ Revises: 004
 Create Date: 2026-03-21
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects.postgresql import ENUM, UUID
 
+from alembic import op
+
 revision: str = "005"
-down_revision: Union[str, None] = "004"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "004"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 customer_risk_enum = ENUM("low", "medium", "high", name="customerrisklevel", create_type=False)
 customer_type_enum = ENUM("individual", "entity", name="customertype", create_type=False)

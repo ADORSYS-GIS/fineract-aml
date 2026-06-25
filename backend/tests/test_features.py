@@ -1,6 +1,6 @@
 """Tests for feature extraction."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 import pytest
@@ -39,14 +39,14 @@ class TestFeatureExtractor:
     def test_weekend_flag(self):
         # 2025-06-14 is Saturday
         tx = FakeTransaction(
-            transaction_date=datetime(2025, 6, 14, 10, 0, tzinfo=timezone.utc)
+            transaction_date=datetime(2025, 6, 14, 10, 0, tzinfo=UTC)
         )
         features = FeatureExtractor.extract(tx, [], [])
         assert features[7] == 1.0  # is_weekend
 
     def test_night_flag(self):
         tx = FakeTransaction(
-            transaction_date=datetime(2025, 6, 15, 3, 0, tzinfo=timezone.utc)
+            transaction_date=datetime(2025, 6, 15, 3, 0, tzinfo=UTC)
         )
         features = FeatureExtractor.extract(tx, [], [])
         assert features[8] == 1.0  # is_night

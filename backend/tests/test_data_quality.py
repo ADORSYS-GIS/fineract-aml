@@ -1,8 +1,6 @@
 """Tests for DataQualityService — ingestion-time payload validation."""
 
-from datetime import datetime, timedelta, timezone
-
-import pytest
+from datetime import UTC, datetime, timedelta
 
 from app.services.data_quality_service import DataQualityService
 
@@ -19,7 +17,7 @@ def _make_payload(**kwargs):
         transaction_type=TransactionType.DEPOSIT,
         amount=500.0,
         currency="XAF",
-        transaction_date=datetime.now(timezone.utc) - timedelta(minutes=5),
+        transaction_date=datetime.now(UTC) - timedelta(minutes=5),
     )
     defaults.update(kwargs)
     return WebhookPayload(**defaults)
@@ -41,7 +39,7 @@ class TestDataQualityService:
 
     def test_future_timestamp_is_error(self):
         payload = _make_payload(
-            transaction_date=datetime.now(timezone.utc) + timedelta(minutes=10)
+            transaction_date=datetime.now(UTC) + timedelta(minutes=10)
         )
         result = self.svc.validate(payload)
         assert result.is_valid is False
@@ -50,14 +48,14 @@ class TestDataQualityService:
     def test_future_within_clock_skew_is_ok(self):
         """Up to 5 minutes ahead is tolerated."""
         payload = _make_payload(
-            transaction_date=datetime.now(timezone.utc) + timedelta(seconds=60)
+            transaction_date=datetime.now(UTC) + timedelta(seconds=60)
         )
         result = self.svc.validate(payload)
         assert result.is_valid is True
 
     def test_ancient_timestamp_is_error(self):
         payload = _make_payload(
-            transaction_date=datetime.now(timezone.utc) - timedelta(days=365 * 6)
+            transaction_date=datetime.now(UTC) - timedelta(days=365 * 6)
         )
         result = self.svc.validate(payload)
         assert result.is_valid is False

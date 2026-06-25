@@ -2,7 +2,7 @@
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -181,7 +181,7 @@ class TransactionService:
 
     async def get_stats(self) -> TransactionStats:
         """Get dashboard statistics."""
-        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        today = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
 
         total = (await self.db.execute(select(func.count(Transaction.id)))).scalar_one()
 
@@ -245,7 +245,7 @@ class TransactionService:
         self, account_id: str, window_minutes: int = 60
     ) -> list[Transaction]:
         """Get recent transactions for an account within a time window."""
-        cutoff = datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
+        cutoff = datetime.now(UTC) - timedelta(minutes=window_minutes)
         result = await self.db.execute(
             select(Transaction)
             .where(Transaction.fineract_account_id == account_id)
@@ -261,7 +261,7 @@ class TransactionService:
 
         Used by agent-specific AML rules to detect structuring and float anomalies.
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
+        cutoff = datetime.now(UTC) - timedelta(minutes=window_minutes)
         result = await self.db.execute(
             select(Transaction)
             .where(Transaction.agent_id == agent_id)
@@ -280,7 +280,7 @@ class TransactionService:
         """
         from app.models.transaction import TransactionType
 
-        cutoff = datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
+        cutoff = datetime.now(UTC) - timedelta(minutes=window_minutes)
         result = await self.db.execute(
             select(Transaction)
             .where(Transaction.fineract_client_id == client_id)
@@ -298,7 +298,7 @@ class TransactionService:
         Used for cross-account structuring detection: multiple accounts each sending
         sub-threshold amounts to the same ultimate beneficiary.
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=window_hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=window_hours)
         result = await self.db.execute(
             select(Transaction)
             .where(Transaction.counterparty_account_id == counterparty_account_id)

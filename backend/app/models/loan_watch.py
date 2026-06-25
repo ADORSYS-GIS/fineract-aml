@@ -11,7 +11,7 @@ from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, Float, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
 

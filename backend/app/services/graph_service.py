@@ -6,7 +6,7 @@ Results are cached in Redis (TTL 15 minutes) to reduce DB load.
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import networkx as nx
 from sqlalchemy import select
@@ -52,7 +52,7 @@ class GraphService:
 
     async def get_case_graph(self, case_id: str) -> GraphResponse:
         """Return the transaction network for all accounts in a case."""
-        from app.models.case import Case, CaseTransaction
+        from app.models.case import CaseTransaction
 
         result = await self.db.execute(
             select(CaseTransaction.transaction_id).where(
@@ -92,7 +92,7 @@ class GraphService:
         self, account_id: str, days: int, depth: int
     ) -> nx.DiGraph:
         """Build a directed graph starting from account_id up to `depth` hops."""
-        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff = datetime.now(UTC) - timedelta(days=days)
         graph = nx.DiGraph()
         frontier = {account_id}
         visited = set()

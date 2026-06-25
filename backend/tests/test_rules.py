@@ -1,10 +1,7 @@
 """Tests for the AML rule engine."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-import pytest
-
-from app.models.transaction import TransactionType
 from app.rules.engine import RuleEngine
 from tests.conftest import FakeTransaction
 
@@ -40,7 +37,7 @@ class TestRuleEngine:
     def test_unusual_hours_triggers(self):
         tx = FakeTransaction(
             amount=500.0,
-            transaction_date=datetime(2025, 6, 15, 3, 0, tzinfo=timezone.utc),
+            transaction_date=datetime(2025, 6, 15, 3, 0, tzinfo=UTC),
         )
         result = self.engine.evaluate(tx, [])
         triggered = [r.rule_name for r in result.triggered_rules]
@@ -57,7 +54,7 @@ class TestRuleEngine:
         # Large + round + unusual hours
         tx = FakeTransaction(
             amount=10000.0,
-            transaction_date=datetime(2025, 6, 15, 3, 0, tzinfo=timezone.utc),
+            transaction_date=datetime(2025, 6, 15, 3, 0, tzinfo=UTC),
         )
         result = self.engine.evaluate(tx, [])
         assert len(result.triggered_rules) >= 2

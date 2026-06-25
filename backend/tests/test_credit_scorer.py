@@ -1,16 +1,15 @@
 """Tests for the credit scoring engine."""
 
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
-
-from tests.conftest import FakeTransaction
 
 from app.features.credit_extractor import CreditFeatureExtractor
 from app.ml.credit_scorer import CreditScorer
 from app.models.credit_profile import CreditSegment
 from app.models.transaction import TransactionType
+from tests.conftest import FakeTransaction
 
 
 class TestCreditScorer(unittest.TestCase):
@@ -52,7 +51,7 @@ class TestCreditScorer(unittest.TestCase):
 
     def test_good_customer_scores_high(self):
         """A customer with consistent deposits should score well."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         txs = []
 
         # Regular monthly deposits (6 months)
@@ -78,7 +77,7 @@ class TestCreditScorer(unittest.TestCase):
 
     def test_fraud_customer_scores_lower(self):
         """A customer with fraud alerts should score lower."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         txs = [
             FakeTransaction(
                 transaction_type=TransactionType.DEPOSIT,

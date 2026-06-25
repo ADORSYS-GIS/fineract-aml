@@ -5,11 +5,10 @@ the real-time POST /api/v1/score endpoint call the same code path.
 """
 
 import asyncio
-import json
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -70,7 +69,6 @@ class ScoringService:
         Returns:
             ScoringResult with risk score, triggered rules, and recommendation.
         """
-        from datetime import timezone
 
         from app.features.extractor import FeatureExtractor
         from app.ml.anomaly_detector import AnomalyDetector
@@ -90,7 +88,7 @@ class ScoringService:
             transaction_type=TransactionType(payload.get("transaction_type", "transfer")),
             amount=float(payload.get("amount", 0)),
             currency=payload.get("currency", "XAF"),
-            transaction_date=datetime.now(timezone.utc),
+            transaction_date=datetime.now(UTC),
             counterparty_name=payload.get("counterparty_name"),
             counterparty_account_id=payload.get("counterparty_account_id"),
             actor_type=payload.get("actor_type"),
@@ -123,7 +121,7 @@ class ScoringService:
                     service.get_agent_recent_transactions(tx.agent_id, window_minutes=1440),
                     timeout=timeout,
                 )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             degraded = True
             logger.warning("Sync scoring: DB history fetch timed out — degraded mode")
 

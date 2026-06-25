@@ -1,16 +1,25 @@
 """FastAPI application entry point."""
 
-import json
 import logging
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from app.api import alerts, auth, cases, credit, ctrs, graph, model_health, scoring, transactions, webhook
+from app.api import (
+    alerts,
+    auth,
+    cases,
+    credit,
+    ctrs,
+    graph,
+    model_health,
+    scoring,
+    transactions,
+    webhook,
+)
 from app.core.config import settings
 
 logging.basicConfig(
@@ -90,8 +99,9 @@ async def health_check():
 
     # Check database
     try:
-        from app.core.database import async_session
         from sqlalchemy import text
+
+        from app.core.database import async_session
 
         async with async_session() as db:
             await db.execute(text("SELECT 1"))

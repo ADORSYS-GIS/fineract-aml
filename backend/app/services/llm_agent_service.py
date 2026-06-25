@@ -13,8 +13,8 @@ has direct DB access; it requests data through declared tools.
 
 import json
 import logging
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class InvestigationReport:
     narrative_fr: str                     # SAR-ready narrative in French (COBAC)
     model_used: str = "claude-opus-4-6"
     generated_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 
@@ -202,9 +202,10 @@ class AlertInvestigationAgent:
 
     async def _load_alert_context(self, alert_id: UUID) -> dict | None:
         """Load basic alert + transaction context to seed the conversation."""
+        from sqlalchemy import select
+
         from app.models.alert import Alert
         from app.models.transaction import Transaction
-        from sqlalchemy import select
 
         result = await self.db.execute(
             select(Alert).where(Alert.id == alert_id)
@@ -326,8 +327,9 @@ class AlertInvestigationAgent:
 
     async def _tool_get_credit_profile(self, client_id: str) -> dict:
         from sqlalchemy import select
+
         from app.models.credit_profile import CustomerCreditProfile
-        from app.models.credit_request import CreditRequest, CreditRequestStatus
+        from app.models.credit_request import CreditRequest
 
         result = await self.db.execute(
             select(CustomerCreditProfile).where(
@@ -366,6 +368,7 @@ class AlertInvestigationAgent:
 
     async def _tool_get_related_alerts(self, client_id: str, limit: int) -> dict:
         from sqlalchemy import select
+
         from app.models.alert import Alert
         from app.models.transaction import Transaction
 
@@ -395,6 +398,7 @@ class AlertInvestigationAgent:
 
     async def _tool_get_agent_profile(self, agent_id: str) -> dict:
         from sqlalchemy import select
+
         from app.models.agent_profile import AgentProfile
 
         result = await self.db.execute(

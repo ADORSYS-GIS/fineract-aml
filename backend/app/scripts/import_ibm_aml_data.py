@@ -27,7 +27,7 @@ import sys
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -539,14 +539,14 @@ class IBMAMLImporter:
         print(f"  Fraud rows  : {fraud_count:>10,}  ({fraud_count/total_count*100:.1f}%)")
         print(f"  Legit rows  : {legit_count:>10,}  ({legit_count/total_count*100:.1f}%)")
         print(f"  Unique accts: {n_accounts:>10,}")
-        print(f"\n  Actor distribution (sender accounts):")
+        print("\n  Actor distribution (sender accounts):")
         for a, cnt in sorted(actor_counts.items()):
             print(f"    {a:<12}: {cnt:>7,}  ({cnt/n_accounts*100:.1f}%)")
-        print(f"\n  KYC level distribution:")
+        print("\n  KYC level distribution:")
         for k in sorted(kyc_counts):
             cnt = kyc_counts[k]
             print(f"    KYC {k}: {cnt:>7,}  ({cnt/n_accounts*100:.1f}%)")
-        print(f"\n  Country distribution:")
+        print("\n  Country distribution:")
         for c, cnt in sorted(country_counts.items(), key=lambda x: -x[1]):
             print(f"    {c}: {cnt:>7,}  ({cnt/n_accounts*100:.1f}%)")
         print(f"{'='*60}\n")
@@ -575,7 +575,7 @@ def _parse_timestamp(raw: str) -> datetime | None:
     for fmt in ("%Y/%m/%d %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
         try:
             dt = datetime.strptime(raw, fmt)
-            return dt.replace(tzinfo=timezone.utc)
+            return dt.replace(tzinfo=UTC)
         except ValueError:
             continue
     return None
