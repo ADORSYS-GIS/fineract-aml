@@ -195,6 +195,15 @@ class FraudClassifier:
         if not self.is_ready:
             return 0.0, "no_model"
 
+        # Guard against feature-width drift (e.g. AML_GRAPH_ENABLED toggled after training).
+        expected_n = getattr(self.model, "n_features_in_", None)
+        if expected_n is not None and expected_n != features.shape[0]:
+            logger.warning(
+                "Fraud model feature mismatch (model=%s, input=%s) — skipping ML; retrain needed",
+                expected_n, features.shape[0],
+            )
+            return 0.0, "feature_mismatch"
+
         proba = self.model.predict_proba(features.reshape(1, -1))[0][1]
         return float(proba), self.version or "unknown"
 

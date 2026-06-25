@@ -27,6 +27,7 @@ class AlertSource(str, enum.Enum):
     ML_MODEL = "ml_model"
     MANUAL = "manual"
     LOAN_MONITORING = "loan_monitoring"
+    GRAPH_ANALYSIS = "graph_analysis"  # shared-asset ring / guilt-by-association (ADR 0007)
 
 
 class Alert(Base, TimestampMixin):

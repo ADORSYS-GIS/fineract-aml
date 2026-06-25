@@ -71,6 +71,24 @@ FEATURE_NAMES = [
     "is_new_kyc",            # kyc_level == 1 (brand-new / unverified account)
 ]
 
+# ── Graph fraud-layer features (7) — appended only when graph_enabled (ADR 0007) ──────
+# Toggling AML_GRAPH_ENABLED changes the vector width, so a model trained under one setting
+# returns is_ready=False under the other (guarded by the dimension check in the ML models).
+GRAPH_FEATURE_NAMES = [
+    "graph_distance_to_known_bad",  # 1/hops to nearest known_bad/frozen/sanctioned (0 if none)
+    "graph_shared_device_count",    # # other accounts sharing this device
+    "graph_shared_ip_count",        # # other accounts sharing this IP
+    "graph_degree",                 # money-flow degree (in+out)
+    "graph_pagerank",               # money-flow centrality
+    "graph_is_in_cycle",            # participates in a layering cycle
+    "graph_community_size",         # size of the account's connected community
+]
+
+
+def _graph_features_enabled() -> bool:
+    from app.core.config import settings
+    return settings.graph_enabled
+
 
 class FeatureExtractor:
     """Extracts numerical features from a transaction and its context."""
@@ -81,6 +99,7 @@ class FeatureExtractor:
         account_history_1h: list[Transaction],
         account_history_24h: list[Transaction],
         account_history_7d: list[Transaction] | None = None,
+        graph_features: dict | None = None,
     ) -> np.ndarray:
         """Extract features for a single transaction.
 
@@ -238,11 +257,21 @@ class FeatureExtractor:
         features.append(float(kyc_level) / 4.0 if kyc_level else 0.5)
         features.append(1.0 if kyc_level == 1 else 0.0)
 
-        assert len(features) == len(FEATURE_NAMES), (
-            f"Feature count mismatch: got {len(features)}, expected {len(FEATURE_NAMES)}"
+        # ── Graph fraud-layer features (only when enabled) ────────────────────
+        if _graph_features_enabled():
+            gf = graph_features or {}
+            for name in GRAPH_FEATURE_NAMES:
+                # GRAPH_FEATURE_NAMES are prefixed "graph_"; the dict uses bare keys.
+                features.append(float(gf.get(name[len("graph_"):], 0.0)))
+
+        expected = FeatureExtractor.get_feature_names()
+        assert len(features) == len(expected), (
+            f"Feature count mismatch: got {len(features)}, expected {len(expected)}"
         )
         return np.array(features, dtype=np.float64)
 
     @staticmethod
     def get_feature_names() -> list[str]:
+        if _graph_features_enabled():
+            return FEATURE_NAMES + GRAPH_FEATURE_NAMES
         return FEATURE_NAMES

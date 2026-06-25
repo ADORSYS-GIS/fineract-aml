@@ -29,8 +29,53 @@ def _run_async(coro):
         loop.close()
 
 
+async def _upsert_graph_edges(transaction, transaction_id: str) -> None:
+    """Write the transaction's profile-asset edges to the graph DB (fail-open)."""
+    from app.core.config import settings
+
+    if not settings.graph_enabled:
+        return
+    try:
+        from app.core.graph import ephemeral_graph_session
+        from app.graph.client import GraphClient, tx_to_graph_payload
+
+        async with ephemeral_graph_session() as gsession:
+            if gsession is not None:
+                await GraphClient(gsession).upsert_transaction(tx_to_graph_payload(transaction))
+    except Exception:
+        logger.warning("Graph upsert failed for tx %s (non-fatal)", transaction_id, exc_info=True)
+
+
+async def _graph_read(account_id: str) -> dict:
+    """Read graph ML features + bounded graph score in one session (fail-open).
+
+    Returns {"features": dict | None, "score": float}. On disabled/unavailable/error the
+    features are None (extractor then uses zeros) and the score is 0.0.
+    """
+    from app.core.config import settings
+
+    empty = {"features": None, "score": 0.0}
+    if not settings.graph_enabled or not account_id:
+        return empty
+    try:
+        from app.core.graph import ephemeral_graph_session
+        from app.graph.client import GraphClient
+
+        async with ephemeral_graph_session() as gsession:
+            if gsession is None:
+                return empty
+            client = GraphClient(gsession)
+            features = await client.network_features(account_id, k_hops=settings.graph_k_hops)
+            score = await client.compute_graph_score(account_id, k_hops=settings.graph_k_hops)
+            return {"features": features, "score": score.score}
+    except Exception:
+        logger.warning("Graph read failed for account %s (non-fatal)", account_id, exc_info=True)
+        return empty
+
+
 def _build_score_explanation(
     features, feature_names, rule_result, anomaly_score, ml_score, final_score,
+    graph_score: float = 0.0,
 ) -> dict:
     """Build a human-readable explanation of the risk score for regulators."""
     explanation = {
@@ -39,6 +84,7 @@ def _build_score_explanation(
             "rule_score": round(rule_result.combined_score, 4),
             "anomaly_score": round(anomaly_score, 4),
             "ml_score": round(ml_score, 4),
+            "graph_score": round(graph_score, 4),
         },
         "triggered_rules": [
             {"name": r.rule_name, "category": r.category, "severity": round(r.severity, 3)}
@@ -96,6 +142,13 @@ async def _analyze(transaction_id: str):
 
         service = TransactionService(db)
 
+        # 1b. Upsert profile-asset graph edges (ADR 0007) — fail-open, never break analysis.
+        await _upsert_graph_edges(transaction, transaction_id)
+
+        # 1c. Read graph features + score once (fail-open). Done after the upsert so the
+        # current transaction's edges are reflected.
+        graph_data = await _graph_read(transaction.fineract_account_id)
+
         # 2. Get account history for feature extraction
         history_1h = await service.get_account_history(
             transaction.fineract_account_id, window_minutes=60
@@ -104,8 +157,10 @@ async def _analyze(transaction_id: str):
             transaction.fineract_account_id, window_minutes=1440
         )
 
-        # 3. Extract features
-        features = FeatureExtractor.extract(transaction, history_1h, history_24h)
+        # 3. Extract features (graph features appended only when AML_GRAPH_ENABLED)
+        features = FeatureExtractor.extract(
+            transaction, history_1h, history_24h, graph_features=graph_data["features"]
+        )
 
         # 4. Run rule engine (uses 24h history for IP-based rules)
         rule_engine = RuleEngine()
@@ -149,6 +204,14 @@ async def _analyze(transaction_id: str):
             # No trained models at all — rules are the only signal
             final_score = rule_result.combined_score
 
+        # 7b. Graph fraud layer (ADR 0007) — guilt-by-association + shared-asset fan.
+        # Uses the score read in step 1c. Fail-open: score is 0.0 when disabled/unavailable.
+        graph_score = graph_data["score"]
+        if settings.graph_enabled and graph_score:
+            # Convex blend preserves the existing rule/anomaly/ml weighting above.
+            w = settings.graph_score_weight
+            final_score = final_score * (1 - w) + graph_score * w
+
         # 8. Build score explanation for model explainability
         explanation = _build_score_explanation(
             features,
@@ -157,6 +220,7 @@ async def _analyze(transaction_id: str):
             anomaly_score,
             ml_score,
             final_score,
+            graph_score=graph_score,
         )
 
         # 9. Update transaction risk score + explanation

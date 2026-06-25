@@ -56,6 +56,14 @@ celery_app.conf.update(
             "task": "app.tasks.escalation.check_escalations",
             "schedule": 3600.0,  # Hourly
         },
+        "backfill-graph": {
+            "task": "app.tasks.graph_backfill.backfill_graph",
+            "schedule": 86400.0,  # Daily — rebuild/repair the graph from Postgres (ADR 0007)
+        },
+        "detect-graph-rings": {
+            "task": "app.tasks.graph_backfill.detect_rings",
+            "schedule": 21600.0,  # Every 6 hours — shared-asset cluster / ring alerts
+        },
     },
 )
 
@@ -71,4 +79,5 @@ celery_app.conf.update(include=[
     "app.tasks.llm_investigation",
     "app.tasks.escalation",
     "app.tasks.promote_shadow",
+    "app.tasks.graph_backfill",
 ])

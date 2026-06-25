@@ -22,7 +22,8 @@ joblib>=1.4.2
 pyod>=2.0.1
 
 # Graph analysis
-networkx>=3.2
+networkx>=3.2          # in-memory fallback analyzer + community detection
+neo4j>=5.18.0          # Bolt driver for Memgraph (portable to Neo4j) — ADR 0007
 
 # Task queue
 celery[redis]>=5.4.0
