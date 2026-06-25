@@ -9,7 +9,7 @@ These tasks create alerts via the standard alert pipeline when fraud is detected
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from uuid import UUID
 
 from app.tasks.celery_app import celery_app
@@ -35,12 +35,13 @@ def check_loan_behavior(self, loan_watch_id: str, check_window: str):
 
 
 async def _run_check(loan_watch_id: UUID, check_window: str):
+    from sqlalchemy import select
+
     from app.core.config import settings
     from app.core.database import async_session as AsyncSessionLocal
     from app.models.alert import Alert, AlertSource, AlertStatus
     from app.models.loan_watch import LoanDisbursementWatch, LoanWatchStatus
-    from app.models.transaction import Transaction, TransactionType
-    from sqlalchemy import select
+    from app.models.transaction import Transaction
 
     async with AsyncSessionLocal() as db:
         # Load the watch record

@@ -1,9 +1,6 @@
 """Tests for the webhook API endpoint."""
 
-from datetime import datetime, timezone
-from unittest.mock import patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app

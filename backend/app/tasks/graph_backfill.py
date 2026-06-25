@@ -12,6 +12,7 @@ fork-safety issues, and both no-op when `graph_enabled` is false.
 
 import asyncio
 import logging
+from datetime import UTC
 
 from app.tasks.celery_app import celery_app
 
@@ -45,7 +46,7 @@ def detect_rings(self):
 
 
 async def _backfill_async() -> dict:
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -61,7 +62,7 @@ async def _backfill_async() -> dict:
     from app.graph.client import GraphClient, tx_to_graph_payload
     from app.graph.schema import ensure_schema
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=settings.graph_backfill_lookback_days)
+    cutoff = datetime.now(UTC) - timedelta(days=settings.graph_backfill_lookback_days)
 
     engine = create_async_engine(settings.database_url, pool_size=5, max_overflow=2)
     session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

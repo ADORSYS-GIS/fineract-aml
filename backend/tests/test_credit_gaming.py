@@ -1,6 +1,6 @@
 """Tests for credit score gaming detection — round-trip score and inflation detection."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 import pytest
@@ -14,7 +14,7 @@ def _tx(tx_type: TransactionType, amount: float, days_ago: float = 10, counterpa
     return FakeTransaction(
         transaction_type=tx_type,
         amount=amount,
-        transaction_date=datetime.now(timezone.utc) - timedelta(days=days_ago),
+        transaction_date=datetime.now(UTC) - timedelta(days=days_ago),
         counterparty_account_id=counterparty,
     )
 
@@ -44,7 +44,7 @@ class TestCreditFeatureExtractorRoundTrip:
 
     def test_full_round_trip_gives_score_1(self):
         """Deposit 10k from CP-A, then transfer 10k back to CP-A within 48h → score = 1.0."""
-        base_time = datetime.now(timezone.utc) - timedelta(days=5)
+        base_time = datetime.now(UTC) - timedelta(days=5)
         txns = [
             FakeTransaction(
                 transaction_type=TransactionType.DEPOSIT,
@@ -65,7 +65,7 @@ class TestCreditFeatureExtractorRoundTrip:
 
     def test_partial_round_trip(self):
         """Deposit 10k, transfer 5k back to same counterparty → score = 0.5."""
-        base_time = datetime.now(timezone.utc) - timedelta(days=5)
+        base_time = datetime.now(UTC) - timedelta(days=5)
         txns = [
             FakeTransaction(
                 transaction_type=TransactionType.DEPOSIT,
@@ -91,7 +91,7 @@ class TestCreditFeatureExtractorRoundTrip:
         to cp_deposits, which would cause a transfer to self-reference. Withdrawals
         are not added to cp_deposits, avoiding this edge case.
         """
-        base_time = datetime.now(timezone.utc) - timedelta(days=10)
+        base_time = datetime.now(UTC) - timedelta(days=10)
         txns = [
             FakeTransaction(
                 transaction_type=TransactionType.DEPOSIT,
@@ -113,7 +113,7 @@ class TestCreditFeatureExtractorRoundTrip:
 
     def test_withdrawal_to_different_counterparty_not_counted(self):
         """Withdrawal to a counterparty with no prior deposit does not count as round-trip."""
-        base_time = datetime.now(timezone.utc) - timedelta(days=5)
+        base_time = datetime.now(UTC) - timedelta(days=5)
         txns = [
             FakeTransaction(
                 transaction_type=TransactionType.DEPOSIT,

@@ -11,7 +11,7 @@ reconstructed from the training batch + database, matching inference behavior.
 import asyncio
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 
@@ -63,7 +63,7 @@ def _build_account_history(
 
 def _build_account_index(transactions: list["Transaction"]) -> dict[str, list["Transaction"]]:
     """Index transactions by account ID for efficient history lookup."""
-    index: dict[str, list["Transaction"]] = defaultdict(list)
+    index: dict[str, list[Transaction]] = defaultdict(list)
     for tx in transactions:
         index[tx.fineract_account_id].append(tx)
     return index
@@ -102,13 +102,13 @@ async def _save_health_snapshot(db, model_name: str, metrics: dict) -> None:
     """Persist a ModelHealthSnapshot after each training run."""
     try:
         import json
-        from datetime import timezone
+
         from app.models.model_health import ModelHealthSnapshot
 
         snapshot = ModelHealthSnapshot(
             model_name=model_name,
             model_version=metrics.get("model_version"),
-            trained_at=datetime.now(timezone.utc),
+            trained_at=datetime.now(UTC),
             training_sample_count=metrics.get("n_samples"),
             auc_score=metrics.get("roc_auc") or metrics.get("auc"),
             precision_score=metrics.get("precision"),
@@ -121,6 +121,7 @@ async def _save_health_snapshot(db, model_name: str, metrics: dict) -> None:
 
         # Also push to Redis for fast access
         import redis
+
         from app.core.config import settings
         r = redis.from_url(settings.redis_url, socket_connect_timeout=1)
         r.setex(
@@ -143,8 +144,8 @@ def _log_to_mlflow(model_name: str, metrics: dict):
     """Log training metrics to MLflow if available."""
     try:
         import socket
+
         import mlflow
-        from mlflow.tracking import MlflowClient
 
         from app.core.config import settings
 
@@ -230,8 +231,8 @@ async def _retrain_anomaly():
 
 async def _retrain_classifier():
     from sqlalchemy import func, select
-    from sqlalchemy.orm import selectinload
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+    from sqlalchemy.orm import selectinload
 
     from app.core.config import settings
     from app.features.extractor import FeatureExtractor
@@ -342,6 +343,7 @@ async def _retrain_classifier():
         if metrics.get("deployed"):
             try:
                 from sklearn.preprocessing import FunctionTransformer
+
                 from app.ml.shadow_scorer import ShadowScorer
                 shadow = ShadowScorer()
                 shadow.save_as_shadow(classifier.model, FunctionTransformer())

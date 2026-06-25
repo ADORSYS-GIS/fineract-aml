@@ -163,10 +163,11 @@ def _get_text(element, tag, default=""):
 
 async def _sync_ofac_sdn():
     """Download and sync the OFAC SDN list."""
+    from sqlalchemy import delete
+
     from app.core.database import async_session
     from app.models.sanctions import WatchlistEntry, WatchlistSource
     from app.services.audit_service import AuditService
-    from sqlalchemy import delete
 
     logger.info("Starting OFAC SDN list sync...")
 

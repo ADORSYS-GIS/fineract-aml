@@ -3,8 +3,7 @@
 COBAC requires CTRs to be filed for transactions above 5,000,000 XAF.
 This API allows compliance officers to manage the CTR filing workflow.
 """
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -26,18 +25,18 @@ class CTRResponse(BaseModel):
     currency: str
     transaction_type: str
     status: str
-    agent_id: Optional[str]
-    branch_id: Optional[str]
-    counterparty_name: Optional[str]
-    counterparty_account: Optional[str]
-    filed_at: Optional[str]
-    cobac_reference: Optional[str]
+    agent_id: str | None
+    branch_id: str | None
+    counterparty_name: str | None
+    counterparty_account: str | None
+    filed_at: str | None
+    cobac_reference: str | None
     created_at: str
 
 
 class CTRFilingUpdate(BaseModel):
-    cobac_reference: Optional[str] = None
-    notes: Optional[str] = None
+    cobac_reference: str | None = None
+    notes: str | None = None
 
 
 @router.get(
@@ -46,7 +45,7 @@ class CTRFilingUpdate(BaseModel):
     dependencies=[Depends(require_role(UserRole.ANALYST, UserRole.MLRO, UserRole.ADMIN))],
 )
 async def list_ctrs(
-    status_filter: Optional[str] = None,
+    status_filter: str | None = None,
     limit: int = 50,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
@@ -107,7 +106,7 @@ async def mark_ctr_filed(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CTR not found")
 
     ctr.status = "filed"
-    ctr.filed_at = datetime.now(timezone.utc)
+    ctr.filed_at = datetime.now(UTC)
     if hasattr(ctr, "filed_by_user_id"):
         ctr.filed_by_user_id = current_user.get("user_id")
     if body.cobac_reference:

@@ -1,6 +1,5 @@
 """Webhook endpoint — receives transaction events from Fineract."""
 
-import json
 import logging
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status

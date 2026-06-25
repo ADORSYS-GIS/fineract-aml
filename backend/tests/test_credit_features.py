@@ -1,12 +1,11 @@
 """Tests for the credit feature extractor."""
 
 import unittest
-from datetime import datetime, timedelta, timezone
-
-from tests.conftest import FakeTransaction
+from datetime import UTC, datetime, timedelta
 
 from app.features.credit_extractor import CREDIT_FEATURE_NAMES, CreditFeatureExtractor
 from app.models.transaction import TransactionType
+from tests.conftest import FakeTransaction
 
 
 class TestCreditFeatureExtractor(unittest.TestCase):
@@ -17,7 +16,7 @@ class TestCreditFeatureExtractor(unittest.TestCase):
         tx = FakeTransaction(
             transaction_type=TransactionType.DEPOSIT,
             amount=1000,
-            transaction_date=datetime.now(timezone.utc) - timedelta(days=10),
+            transaction_date=datetime.now(UTC) - timedelta(days=10),
         )
         features = CreditFeatureExtractor.extract([tx], 0, None, 30)
         assert len(features) == len(CREDIT_FEATURE_NAMES)
@@ -30,7 +29,7 @@ class TestCreditFeatureExtractor(unittest.TestCase):
 
     def test_deposit_features(self):
         """Deposits should contribute to deposit-related features."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         txs = [
             FakeTransaction(
                 transaction_type=TransactionType.DEPOSIT,
@@ -47,7 +46,7 @@ class TestCreditFeatureExtractor(unittest.TestCase):
 
     def test_withdrawal_features(self):
         """Withdrawals should contribute to withdrawal features."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         txs = [
             FakeTransaction(
                 transaction_type=TransactionType.WITHDRAWAL,
@@ -69,7 +68,7 @@ class TestCreditFeatureExtractor(unittest.TestCase):
 
     def test_loan_repayment_rate(self):
         """Loan repayment rate should be computed from disbursements and repayments."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         txs = [
             FakeTransaction(
                 transaction_type=TransactionType.LOAN_DISBURSEMENT,
@@ -92,7 +91,7 @@ class TestCreditFeatureExtractor(unittest.TestCase):
         tx = FakeTransaction(
             transaction_type=TransactionType.DEPOSIT,
             amount=1000,
-            transaction_date=datetime.now(timezone.utc) - timedelta(days=5),
+            transaction_date=datetime.now(UTC) - timedelta(days=5),
         )
         features = CreditFeatureExtractor.extract([tx], 0, None, 30)
         feat_dict = dict(zip(CREDIT_FEATURE_NAMES, features))
@@ -104,7 +103,7 @@ class TestCreditFeatureExtractor(unittest.TestCase):
         tx = FakeTransaction(
             transaction_type=TransactionType.DEPOSIT,
             amount=1000,
-            transaction_date=datetime.now(timezone.utc) - timedelta(days=5),
+            transaction_date=datetime.now(UTC) - timedelta(days=5),
         )
         features = CreditFeatureExtractor.extract([tx], 3, 10, 30)
         feat_dict = dict(zip(CREDIT_FEATURE_NAMES, features))
@@ -117,7 +116,7 @@ class TestCreditFeatureExtractor(unittest.TestCase):
         tx = FakeTransaction(
             transaction_type=TransactionType.DEPOSIT,
             amount=1000,
-            transaction_date=datetime.now(timezone.utc) - timedelta(days=5),
+            transaction_date=datetime.now(UTC) - timedelta(days=5),
         )
         features = CreditFeatureExtractor.extract([tx], 0, None, 30)
         feat_dict = dict(zip(CREDIT_FEATURE_NAMES, features))
@@ -126,7 +125,7 @@ class TestCreditFeatureExtractor(unittest.TestCase):
 
     def test_transfer_features(self):
         """Transfer transactions should affect transfer ratio features."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         txs = [
             FakeTransaction(
                 transaction_type=TransactionType.DEPOSIT,

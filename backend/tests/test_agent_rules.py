@@ -1,9 +1,6 @@
 """Tests for agent, merchant, and network typology rules."""
 
-import uuid
-from datetime import datetime, timedelta, timezone
-
-import pytest
+from datetime import UTC, datetime, timedelta
 
 from app.models.transaction import TransactionType
 from app.rules.engine import RuleEngine
@@ -349,9 +346,8 @@ class TestNetworkTypologyRules:
     # ── stacking ───────────────────────────────────────────────────────────────
 
     def test_stacking_triggers_with_proportional_chain(self):
-        from app.core.config import settings
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # A→B (100k) → B→C (95k) → C→D (90k) all within stacking window
         history_7d = [
             FakeTransaction(
@@ -375,7 +371,7 @@ class TestNetworkTypologyRules:
         assert "stacking" in triggered
 
     def test_stacking_not_triggered_with_disproportionate_amounts(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         history_7d = [
             FakeTransaction(
                 amount=1000.0,  # Very different from current 100k
@@ -393,7 +389,7 @@ class TestNetworkTypologyRules:
         assert "stacking" not in triggered
 
     def test_stacking_not_triggered_on_non_transfer(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         history_7d = [
             FakeTransaction(
                 amount=90000.0,

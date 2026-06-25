@@ -1,19 +1,19 @@
 """Tests for post-disbursement loan behavior analysis (pure logic, no DB)."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
 
-from app.tasks.loan_monitoring import _analyze_post_disbursement
 from app.models.transaction import TransactionType
+from app.tasks.loan_monitoring import _analyze_post_disbursement
 from tests.conftest import FakeTransaction
 
 
 def _make_watch(disbursed_amount: float = 100_000.0, currency: str = "XAF"):
     return SimpleNamespace(
         disbursed_amount=disbursed_amount,
-        disbursed_at=datetime.now(timezone.utc) - timedelta(hours=2),
+        disbursed_at=datetime.now(UTC) - timedelta(hours=2),
         fineract_account_id="ACC-001",
         currency=currency,
         findings_json=None,

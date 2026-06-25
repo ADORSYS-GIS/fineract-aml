@@ -9,14 +9,14 @@ Usage:
 import asyncio
 import random
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from passlib.context import CryptContext
 from sqlalchemy import select
 
 from app.core.database import async_session, engine
 from app.models.base import Base
-from app.models.transaction import RiskLevel, Transaction, TransactionType
+from app.models.transaction import Transaction, TransactionType
 from app.models.user import User, UserRole
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -59,7 +59,7 @@ async def seed():
 
         # Generate sample transactions
         rng = random.Random(42)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         accounts = [f"ACC-{i:03d}" for i in range(1, 21)]
         clients = [f"CLI-{i:03d}" for i in range(1, 16)]
         currencies = ["USD", "EUR", "XAF"]

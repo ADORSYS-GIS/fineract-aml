@@ -3,20 +3,20 @@
 Uses AsyncMock + SQLAlchemy stub objects to avoid needing a live database.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from app.models.alert import AlertStatus
 from app.models.case import CaseStatus
 from app.services.escalation_service import (
-    EscalationService,
     _ESCALATION_HOURS,
     _ESCALATION_SCORE_THRESHOLD,
     _HIGH_ALERT_COUNT_THRESHOLD,
     _SAR_DEADLINE_DAYS,
+    EscalationService,
 )
 
 
@@ -27,7 +27,7 @@ def _make_case(
     sla_deadline=None,
     sar_document_path=None,
 ):
-    created = datetime.now(timezone.utc) - timedelta(hours=hours_old)
+    created = datetime.now(UTC) - timedelta(hours=hours_old)
     return SimpleNamespace(
         id="CASE-001",
         case_number="AML-2025-001",
@@ -80,7 +80,7 @@ class TestAutoEscalatePendingCases:
         assert case.status == CaseStatus.ESCALATED
         assert case.sla_deadline is not None
         # SLA deadline should be ~30 days from now
-        delta = case.sla_deadline - datetime.now(timezone.utc)
+        delta = case.sla_deadline - datetime.now(UTC)
         assert abs(delta.total_seconds() - _SAR_DEADLINE_DAYS * 86400) < 60
 
     @pytest.mark.asyncio
@@ -140,7 +140,7 @@ class TestAutoEscalatePendingCases:
 class TestCheckSarDeadlines:
     @pytest.mark.asyncio
     async def test_past_deadline_without_sar_is_flagged(self):
-        past_deadline = datetime.now(timezone.utc) - timedelta(days=1)
+        past_deadline = datetime.now(UTC) - timedelta(days=1)
         case = _make_case(
             status=CaseStatus.ESCALATED,
             sla_deadline=past_deadline,

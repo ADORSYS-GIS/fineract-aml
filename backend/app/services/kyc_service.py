@@ -5,9 +5,8 @@ and determines Enhanced Due Diligence (EDD) requirements based on
 risk factors (PEP status, high-risk country, sanctions matches).
 """
 
-import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy import select
@@ -95,7 +94,7 @@ class KYCService:
         )
         customer = result.scalar_one_or_none()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if fineract_data:
             fields = self._map_fineract_to_customer(fineract_data)

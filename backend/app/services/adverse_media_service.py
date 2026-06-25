@@ -7,7 +7,7 @@ and high-risk customers beyond standard sanctions list screening.
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -44,7 +44,7 @@ class AdverseMediaResult:
     hit_count: int
     highest_relevance_score: float   # 0.0–1.0 (fraction of keywords matched)
     article_snippets: list[str] = field(default_factory=list)
-    screened_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    screened_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     error: str | None = None
 
 

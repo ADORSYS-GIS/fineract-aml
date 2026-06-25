@@ -6,12 +6,11 @@ Implements Jube-inspired workflow automation:
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.models.alert import Alert, AlertStatus
 from app.models.case import Case, CaseStatus
 from app.models.transaction import Transaction
@@ -40,7 +39,7 @@ class EscalationService:
         Returns:
             Number of cases escalated.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         cutoff = now - timedelta(hours=_ESCALATION_HOURS)
 
         result = await self.db.execute(
@@ -76,7 +75,7 @@ class EscalationService:
         Returns:
             Number of cases past their SLA deadline.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         result = await self.db.execute(
             select(Case).where(
@@ -122,7 +121,7 @@ class EscalationService:
         high_count = sum(1 for a in alerts if a.risk_score >= 0.6)
 
         if max_score >= _ESCALATION_SCORE_THRESHOLD:
-            open_hours = (now - case.created_at.replace(tzinfo=timezone.utc)).total_seconds() / 3600
+            open_hours = (now - case.created_at.replace(tzinfo=UTC)).total_seconds() / 3600
             return (
                 f"Score critique ({max_score:.2f}) — dossier ouvert depuis {open_hours:.0f}h "
                 f"sans résolution"

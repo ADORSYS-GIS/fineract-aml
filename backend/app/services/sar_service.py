@@ -9,7 +9,7 @@ Handles:
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -33,7 +33,7 @@ class SARData:
     subject_name: str
     subject_client_id: str
     filing_institution: str = "WeBank Cameroun"
-    filing_date: str = field(default_factory=lambda: datetime.now(timezone.utc).date().isoformat())
+    filing_date: str = field(default_factory=lambda: datetime.now(UTC).date().isoformat())
     report_date_range_start: str = ""
     report_date_range_end: str = ""
     transaction_count: int = 0
@@ -285,7 +285,7 @@ Commence directement par le corps de la déclaration (pas d'en-tête)."""
 
             from reportlab.lib import colors
             from reportlab.lib.pagesizes import A4
-            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
             from reportlab.lib.units import cm
             from reportlab.platypus import (
                 Paragraph,

@@ -18,7 +18,7 @@ Existing trained models will return is_ready=False until retrained.
 
 import logging
 import math
-from datetime import datetime, timezone
+from datetime import datetime
 
 import numpy as np
 

@@ -28,11 +28,10 @@ Fraud patterns injected:
 import argparse
 import csv
 import json
-import os
 import random
 import sys
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 # Add backend to path
@@ -354,7 +353,7 @@ def generate_dataset(
 
     clients = generate_clients(num_clients)
     accounts = generate_accounts(clients, int(num_clients * 1.5))
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Generate normal transactions
     num_normal = int(num_transactions * (1 - fraud_rate))
@@ -390,7 +389,7 @@ def generate_dataset(
     print(f"\nGenerated {total} transactions:")
     print(f"  Normal:     {total - fraud_count} ({(total - fraud_count) / total:.1%})")
     print(f"  Fraudulent: {fraud_count} ({fraud_count / total:.1%})")
-    print(f"\nFraud patterns:")
+    print("\nFraud patterns:")
     for pattern, count in sorted(patterns.items(), key=lambda x: -x[1]):
         print(f"  {pattern:25s}: {count:5d} transactions")
     print(f"\nClients: {len(clients)}, Accounts: {len(accounts)}")
@@ -435,6 +434,8 @@ def seed_database(transactions: list[dict], clients: list[dict]):
     from sqlalchemy import create_engine, select
     from sqlalchemy.orm import Session
 
+    # Import all models so metadata knows about them
+    import app.models  # noqa: F401
     from app.core.config import settings
     from app.models.alert import Alert, AlertSource, AlertStatus
     from app.models.base import Base
@@ -442,15 +443,12 @@ def seed_database(transactions: list[dict], clients: list[dict]):
     from app.models.transaction import RiskLevel, Transaction, TransactionType
     from app.models.user import User, UserRole
 
-    # Import all models so metadata knows about them
-    import app.models  # noqa: F401
-
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
     # Build sync database URL from async one
     sync_url = settings.database_url.replace("+asyncpg", "").replace("asyncpg://", "")
     sync_url = f"postgresql+psycopg2://{sync_url.split('://', 1)[-1]}"
-    print(f"\n--- Seeding Database ---")
+    print("\n--- Seeding Database ---")
     print(f"Database: {sync_url.split('@')[1] if '@' in sync_url else sync_url}")
 
     sync_engine = create_engine(sync_url)
@@ -583,7 +581,7 @@ def seed_database(transactions: list[dict], clients: list[dict]):
     from app.features.extractor import FeatureExtractor
     from app.ml.anomaly_detector import AnomalyDetector
     from app.ml.fraud_classifier import FraudClassifier
-    from app.tasks.training import _build_account_index, _build_account_history
+    from app.tasks.training import _build_account_history, _build_account_index
 
     with Session(sync_engine) as db:
         # Fetch all transactions for training
@@ -662,9 +660,9 @@ def seed_database(transactions: list[dict], clients: list[dict]):
     print(f"Database seeded with {len(transactions)} transactions")
     print(f"Labeled training data: {n_fraud_labels} fraud + {n_legit_labels} legitimate")
     print(f"Models trained and saved to {settings.model_path}/")
-    print(f"\nLogin credentials: admin / admin123")
-    print(f"API: http://localhost:8000/docs")
-    print(f"Dashboard: http://localhost:3000")
+    print("\nLogin credentials: admin / admin123")
+    print("API: http://localhost:8000/docs")
+    print("Dashboard: http://localhost:3000")
 
 
 def main():

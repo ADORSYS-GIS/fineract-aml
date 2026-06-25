@@ -3,7 +3,6 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -50,8 +49,8 @@ class Case(Base, TimestampMixin):
     sar_document_path: Mapped[str | None] = mapped_column(String(512))
 
     # COBAC audit trail — set when case reaches a terminal/closed state
-    closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    closed_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # username who closed
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_by: Mapped[str | None] = mapped_column(String(100), nullable=True)  # username who closed
 
     # Relationships
     assignee: Mapped["User | None"] = relationship()  # noqa: F821

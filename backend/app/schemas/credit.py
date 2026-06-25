@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 from app.models.credit_profile import CreditSegment, ScoringMethod
 from app.models.credit_request import CreditRecommendation, CreditRequestStatus
 
-
 # ── Credit Profile ────────────────────────────────────────
 
 
