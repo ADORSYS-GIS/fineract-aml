@@ -31,6 +31,8 @@ class ScoringResult:
     recommendation: str = "monitor"       # "pass" | "monitor" | "review" | "block"
     latency_ms: float = 0.0
     degraded_mode: bool = False           # True when DB reads timed out
+    graph_score: float = 0.0              # graph fraud-layer component (0 when disabled) — ADR 0007
+    graph_degraded: bool = False          # True when the graph read timed out / was unavailable
 
 
 def _risk_level_from_score(score: float) -> str:
@@ -156,6 +158,16 @@ class ScoringService:
         else:
             final_score = rule_result.combined_score
 
+        # Graph fraud layer (ADR 0007) — bounded, fail-open. A timeout/error leaves the
+        # combined score untouched and only flags `graph_degraded` (never blocks the path).
+        graph_score = 0.0
+        graph_degraded = False
+        if settings.graph_enabled:
+            graph_score, graph_degraded = await self._graph_component(tx.fineract_account_id)
+            if not graph_degraded:
+                w = settings.graph_score_weight
+                final_score = final_score * (1 - w) + graph_score * w
+
         risk_level = _risk_level_from_score(final_score)
         recommendation = _recommendation_from_score(final_score, risk_level)
         latency_ms = (time.monotonic() - start) * 1000
@@ -177,4 +189,35 @@ class ScoringService:
             recommendation=recommendation,
             latency_ms=round(latency_ms, 1),
             degraded_mode=degraded,
+            graph_score=round(graph_score, 4),
+            graph_degraded=graph_degraded,
         )
+
+    async def _graph_component(self, account_id: str) -> tuple[float, bool]:
+        """Compute the bounded graph score for an account on the live path.
+
+        Returns (score, degraded). `degraded` is True (and score 0.0) on timeout, missing
+        account id, graph unavailability, or any error — the caller then skips the graph term.
+        """
+        if not account_id:
+            return 0.0, True
+        try:
+            from app.core.graph import graph_session
+            from app.graph.client import GraphClient
+
+            budget = settings.graph_scoring_timeout_ms / 1000.0
+
+            async def _run() -> float:
+                async with graph_session() as gsession:
+                    if gsession is None:
+                        raise RuntimeError("graph unavailable")
+                    result = await GraphClient(gsession).compute_graph_score(
+                        account_id, k_hops=settings.graph_k_hops
+                    )
+                    return result.score
+
+            score = await asyncio.wait_for(_run(), timeout=budget)
+            return score, False
+        except Exception:  # includes asyncio.TimeoutError — fail-open
+            logger.warning("Live graph score degraded for account %s", account_id, exc_info=True)
+            return 0.0, True

@@ -35,6 +35,7 @@ class FakeTransaction:
     actor_type: str | None = None      # "customer" | "agent" | "merchant"
     agent_id: str | None = None
     merchant_id: str | None = None
+    device_id: str | None = None       # SHA-256 device fingerprint (graph asset node)
     kyc_level: int | None = None
     shadow_score: float | None = None
 

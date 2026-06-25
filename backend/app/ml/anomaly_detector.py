@@ -98,6 +98,16 @@ class AnomalyDetector:
             logger.warning("No trained anomaly model available, returning 0.0")
             return 0.0
 
+        # Guard against feature-width drift (e.g. AML_GRAPH_ENABLED toggled after training):
+        # a model trained on a different vector width must not crash the scoring path.
+        expected_n = getattr(self.scaler, "n_features_in_", None)
+        if expected_n is not None and expected_n != features.shape[0]:
+            logger.warning(
+                "Anomaly model feature mismatch (model=%s, input=%s) — returning 0.0; retrain needed",
+                expected_n, features.shape[0],
+            )
+            return 0.0
+
         scaled = self.scaler.transform(features.reshape(1, -1))
 
         # decision_function returns negative for anomalies

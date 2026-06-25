@@ -47,6 +47,14 @@ class ScoringResponse(BaseModel):
         default=False,
         description="True when DB history fetch timed out; score is rules-only",
     )
+    graph_score: float = Field(
+        default=0.0,
+        description="Graph fraud-layer component (0.0 when disabled/degraded) — ADR 0007",
+    )
+    graph_degraded: bool = Field(
+        default=False,
+        description="True when the graph read timed out or was unavailable; graph term skipped",
+    )
 
 
 @router.post("", response_model=ScoringResponse)
@@ -80,4 +88,6 @@ async def score_transaction(
         recommendation=result.recommendation,
         latency_ms=result.latency_ms,
         degraded_mode=result.degraded_mode,
+        graph_score=result.graph_score,
+        graph_degraded=result.graph_degraded,
     )

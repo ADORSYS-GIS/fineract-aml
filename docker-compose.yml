@@ -13,10 +13,14 @@ services:
       - AML_MLFLOW_TRACKING_URI=http://mlflow:5000
       - AML_DEBUG=true
       - AML_FINERACT_WEBHOOK_SECRET=change-me-in-production
+      - AML_GRAPH_ENABLED=false
+      - AML_GRAPH_DATABASE_URL=bolt://memgraph:7687
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      memgraph:
         condition: service_healthy
     volumes:
       - ./backend:/app
@@ -33,10 +37,14 @@ services:
       - AML_CELERY_BROKER_URL=redis://redis:6379/1
       - AML_CELERY_RESULT_BACKEND=redis://redis:6379/2
       - AML_MLFLOW_TRACKING_URI=http://mlflow:5000
+      - AML_GRAPH_ENABLED=false
+      - AML_GRAPH_DATABASE_URL=bolt://memgraph:7687
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      memgraph:
         condition: service_healthy
     volumes:
       - ./backend:/app
@@ -50,8 +58,12 @@ services:
     environment:
       - AML_CELERY_BROKER_URL=redis://redis:6379/1
       - AML_CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - AML_GRAPH_ENABLED=false
+      - AML_GRAPH_DATABASE_URL=bolt://memgraph:7687
     depends_on:
       redis:
+        condition: service_healthy
+      memgraph:
         condition: service_healthy
     volumes:
       - ./backend:/app
@@ -87,6 +99,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Memgraph (graph fraud layer — ADR 0007) ──────────────
+  memgraph:
+    image: memgraph/memgraph-mage:latest   # MAGE bundle adds community_detection for ring analysis
+    container_name: aml-memgraph
+    ports:
+      - "7687:7687"   # Bolt
+      - "7444:7444"   # monitoring / logs
+    command: ["--log-level=WARNING", "--also-log-to-stderr"]
+    volumes:
+      - memgraph-data:/var/lib/memgraph
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'RETURN 0;' | mgconsole --output-format=csv || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   # ── MLflow ───────────────────────────────────────────────
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.16.2
@@ -116,3 +144,4 @@ volumes:
   postgres-data:
   model-data:
   mlflow-data:
+  memgraph-data:
