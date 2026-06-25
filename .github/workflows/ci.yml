@@ -37,6 +37,12 @@ jobs:
     name: Backend Tests
     runs-on: ubuntu-latest
 
+    # Non-default test secrets so app.main's fail-closed production guards don't abort
+    # collection (the app refuses to import with default secrets when AML_DEBUG=false).
+    env:
+      AML_FINERACT_WEBHOOK_SECRET: ci-test-webhook-secret
+      AML_SECRET_KEY: ci-test-secret-key
+
     steps:
       - uses: actions/checkout@v4
 
