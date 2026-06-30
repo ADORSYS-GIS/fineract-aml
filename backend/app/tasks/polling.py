@@ -71,7 +71,12 @@ async def _poll_fineract():
                 return
             data = response.json()
     except httpx.RequestError as e:
-        logger.debug("Fineract poll failed (expected if Fineract is not running): %s", e)
+        if isinstance(e, httpx.ConnectError) and "ssl" in str(e).lower():
+            logger.warning(
+                "Fineract poll failed (SSL/TLS error — set FINERACT_TLS_VERIFY=false for self-signed certs): %s", e
+            )
+        else:
+            logger.debug("Fineract poll failed (expected if Fineract is not running): %s", e)
         return
 
     if not data or "pageItems" not in data:
@@ -107,13 +112,20 @@ async def _poll_fineract():
                     # Round to nearest integer — XAF has no sub-unit (money invariant)
                     raw_amount = round(raw_amount)
 
+                if raw_amount == 0:
+                    logger.debug(
+                        "Polling: skipping zero-amount transaction %s (fee reversal or adjustment)",
+                        fineract_tx_id,
+                    )
+                    continue
+
                 try:
                     payload = WebhookPayload(
                         transaction_id=fineract_tx_id,
                         account_id=str(item.get("accountId") or item.get("savingsAccountId") or ""),
                         client_id=str(item.get("clientId") or ""),
                         transaction_type=_map_fineract_tx_type(item),
-                        amount=max(raw_amount, 1),  # gt=0 guard
+                        amount=raw_amount,
                         currency=currency_data.get("code", settings.default_currency),
                         transaction_date=_parse_fineract_date(item.get("date")),
                     )
@@ -122,18 +134,24 @@ async def _poll_fineract():
                     continue
 
                 dq_result = dq.validate(payload)
+                if not dq_result.is_valid:
+                    logger.warning(
+                        "Polling: skipping invalid payload for tx %s: %s",
+                        fineract_tx_id,
+                        getattr(dq_result, "errors", dq_result.warnings),
+                    )
+                    continue
                 transaction, is_new = await service.ingest_transaction(
                     payload,
                     data_quality_warnings=dq_result.warnings or None,
                 )
 
                 if is_new:
+                    await db.commit()  # commit before dispatch so the Celery worker finds the row
                     from app.tasks.analysis import analyze_transaction
                     analyze_transaction.delay(str(transaction.id))
                     ingested += 1
                     logger.info("Polling ingested missing transaction %s", fineract_tx_id)
-
-            await db.commit()
     finally:
         await engine.dispose()
 

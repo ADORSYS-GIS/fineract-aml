@@ -16,7 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.security import verify_token
 from app.models.alert import Alert, AlertStatus
 from app.models.case import Case, CaseStatus
 from app.models.customer import Customer, CustomerRiskLevel
@@ -31,19 +30,14 @@ router = APIRouter(prefix="/customers", tags=["Customers"])
 def _verify_internal_key(x_aml_api_key: str | None = Header(default=None)):
     """Shared internal API key for server-to-server calls (BFF → AML).
 
-    Configure via AML_INTERNAL_API_KEY env var. When not set the endpoint
-    falls back to JWT auth so it can still be hit from the compliance UI.
+    Configure via AML_INTERNAL_API_KEY env var.
     """
-    expected = getattr(settings, "internal_api_key", "")
-    if expected and x_aml_api_key == expected:
-        return  # valid internal call
-    # If no internal key configured (dev/test), accept without checking
-    if not expected:
-        return
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Missing or invalid X-AML-Api-Key",
-    )
+    expected = settings.internal_api_key
+    if not x_aml_api_key or x_aml_api_key != expected:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid X-AML-Api-Key",
+        )
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -98,7 +92,7 @@ def _recommendation_from_score(score: float | None) -> str | None:
 @router.get(
     "/{client_id}/aml-status",
     response_model=AMLStatusResponse,
-    dependencies=[Depends(verify_token)],
+    dependencies=[Depends(_verify_internal_key)],
 )
 async def get_aml_status(client_id: str, db: AsyncSession = Depends(get_db)):
     """Return the AML risk profile for a Fineract client.

@@ -43,6 +43,11 @@ if not settings.debug:
             "AML_SECRET_KEY is still set to the default value. "
             "Set a strong JWT signing key before running in production."
         )
+    if settings.internal_api_key in _insecure_defaults:
+        raise RuntimeError(
+            "AML_INTERNAL_API_KEY is still set to the default value. "
+            "Set a strong server-to-server key before running in production."
+        )
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)

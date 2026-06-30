@@ -106,6 +106,7 @@ def _build_score_explanation(
 
 async def _analyze(transaction_id: str):
     """Core analysis logic."""
+    from datetime import timedelta
     from uuid import UUID
 
     from sqlalchemy import select
@@ -167,6 +168,20 @@ async def _analyze(transaction_id: str):
                 transaction.agent_id, window_minutes=1440
             )
 
+        # Fetch counterparty history for cross-account structuring detection (CEMAC smurfing)
+        counterparty_history = []
+        if transaction.counterparty_account_id:
+            cutoff = transaction.transaction_date - timedelta(hours=24)
+            cp_rows = await db.execute(
+                select(Transaction)
+                .where(
+                    Transaction.counterparty_account_id == transaction.counterparty_account_id,
+                    Transaction.transaction_date >= cutoff,
+                )
+                .limit(200)
+            )
+            counterparty_history = list(cp_rows.scalars().all())
+
         # 3. Extract features (graph features appended only when AML_GRAPH_ENABLED)
         features = FeatureExtractor.extract(
             transaction, history_1h, history_24h,
@@ -181,7 +196,8 @@ async def _analyze(transaction_id: str):
             history_1h,
             account_history_24h=history_24h,
             account_history_7d=history_7d,
-            agent_history=agent_history or None,
+            counterparty_history=counterparty_history or None,
+            agent_history=agent_history,
         )
 
         # Store rule matches
