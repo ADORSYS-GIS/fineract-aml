@@ -1,12 +1,13 @@
 """Fineract polling fallback — catches transactions missed by webhooks.
 
-This task polls the Fineract API for recent transactions and ingests
-any that are not yet in the AML database. Runs every 60 seconds as
-a fallback when webhooks fail or are unavailable.
+Polls the Fineract API for recent transactions and ingests any that are not
+yet in the AML database. Runs every 60 seconds as a safety net when webhooks
+fail or are delayed.
 """
 
 import asyncio
 import logging
+from datetime import datetime, timezone
 
 import httpx
 
@@ -23,20 +24,43 @@ def _run_async(coro):
         loop.close()
 
 
+def _parse_fineract_date(parts) -> datetime:
+    """Parse Fineract's [year, month, day] array into a UTC datetime."""
+    if isinstance(parts, list) and len(parts) >= 3:
+        return datetime(parts[0], parts[1], parts[2], tzinfo=timezone.utc)
+    return datetime.now(timezone.utc)
+
+
+def _map_fineract_tx_type(raw: dict) -> str:
+    """Map Fineract transactionType.code to our TransactionType enum value."""
+    code = (raw.get("transactionType") or {}).get("code", "")
+    mapping = {
+        "savingsAccountTransactionType.deposit": "deposit",
+        "savingsAccountTransactionType.withdrawal": "withdrawal",
+        "savingsAccountTransactionType.transfer": "transfer",
+    }
+    return mapping.get(code, "other")
+
+
 async def _poll_fineract():
     from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
     from app.core.config import settings
-    from app.core.database import async_session
     from app.models.transaction import Transaction
+    from app.schemas.transaction import WebhookPayload
+    from app.services.data_quality_service import DataQualityService
+    from app.services.transaction_service import TransactionService
 
     if not settings.fineract_base_url:
         logger.debug("Fineract base URL not configured, skipping poll")
         return
 
-    # Fetch recent transactions from Fineract API
+    import os
+    tls_verify = os.getenv("FINERACT_TLS_VERIFY", "true").lower() != "false"
+
     try:
-        async with httpx.AsyncClient(verify=False, timeout=30) as client:
+        async with httpx.AsyncClient(verify=tls_verify, timeout=30) as client:
             response = await client.get(
                 f"{settings.fineract_base_url}/savingsaccounts/transactions",
                 params={"limit": 100, "orderBy": "id", "sortOrder": "DESC"},
@@ -53,28 +77,68 @@ async def _poll_fineract():
     if not data or "pageItems" not in data:
         return
 
-    # Check which transactions are already in our database
-    async with async_session() as db:
-        new_count = 0
-        for item in data["pageItems"]:
-            fineract_tx_id = str(item.get("id", ""))
-            if not fineract_tx_id:
-                continue
+    engine = create_async_engine(settings.database_url, pool_size=3, max_overflow=1)
+    session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    dq = DataQualityService()
 
-            existing = await db.execute(
-                select(Transaction.id).where(
-                    Transaction.fineract_transaction_id == fineract_tx_id
+    ingested = 0
+    try:
+        async with session_maker() as db:
+            service = TransactionService(db)
+            for item in data["pageItems"]:
+                fineract_tx_id = str(item.get("id", ""))
+                if not fineract_tx_id:
+                    continue
+
+                existing = await db.execute(
+                    select(Transaction.id).where(
+                        Transaction.fineract_transaction_id == fineract_tx_id
+                    )
                 )
-            )
-            if existing.scalar_one_or_none():
-                continue
+                if existing.scalar_one_or_none():
+                    continue
 
-            # Transaction not in our DB — queue for ingestion via webhook endpoint
-            logger.info("Polling found missing transaction: %s", fineract_tx_id)
-            new_count += 1
+                # Build a minimal WebhookPayload from Fineract's list response.
+                # Fields like counterparty and actor context are unavailable at this level;
+                # they default to None and the analysis pipeline handles the gaps gracefully.
+                currency_data = item.get("currency") or {}
+                raw_amount = item.get("amount", 0)
+                if isinstance(raw_amount, float):
+                    # Round to nearest integer — XAF has no sub-unit (money invariant)
+                    raw_amount = round(raw_amount)
 
-        if new_count:
-            logger.info("Polling found %d transactions missing from AML database", new_count)
+                try:
+                    payload = WebhookPayload(
+                        transaction_id=fineract_tx_id,
+                        account_id=str(item.get("accountId") or item.get("savingsAccountId") or ""),
+                        client_id=str(item.get("clientId") or ""),
+                        transaction_type=_map_fineract_tx_type(item),
+                        amount=max(raw_amount, 1),  # gt=0 guard
+                        currency=currency_data.get("code", settings.default_currency),
+                        transaction_date=_parse_fineract_date(item.get("date")),
+                    )
+                except Exception as exc:
+                    logger.warning("Polling: could not build payload for tx %s: %s", fineract_tx_id, exc)
+                    continue
+
+                dq_result = dq.validate(payload)
+                transaction, is_new = await service.ingest_transaction(
+                    payload,
+                    data_quality_warnings=dq_result.warnings or None,
+                )
+
+                if is_new:
+                    from app.tasks.analysis import analyze_transaction
+                    analyze_transaction.delay(str(transaction.id))
+                    ingested += 1
+                    logger.info("Polling ingested missing transaction %s", fineract_tx_id)
+
+            await db.commit()
+    finally:
+        await engine.dispose()
+
+    if ingested:
+        logger.info("Polling: ingested %d missing transactions", ingested)
 
 
 @celery_app.task(name="app.tasks.polling.poll_fineract_transactions")

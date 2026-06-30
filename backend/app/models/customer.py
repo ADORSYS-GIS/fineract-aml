@@ -11,6 +11,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, Enum, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import UniqueConstraint
 
 from app.models.base import Base, TimestampMixin
 
@@ -93,8 +94,18 @@ class Customer(Base, TimestampMixin):
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # Stable biometric identity key from webank-verify (ADR 0005).
+    # Set when the BFF forwards a kyc.level2/3.approved webhook carrying person_id.
+    # Nullable because webank-verify omits it when no face was extracted.
+    # A single person_id shared by two fineract_client_ids means the same real person
+    # opened multiple accounts — the primary identity-dedup signal for AML.
+    person_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True, index=True
+    )
+
     __table_args__ = (
         Index("ix_customers_risk", "risk_level"),
         Index("ix_customers_pep", "is_pep"),
         Index("ix_customers_sanctioned", "is_sanctioned"),
+        Index("ix_customers_person_id", "person_id"),
     )

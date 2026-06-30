@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Auth
     secret_key: str = "change-me-in-production"
     access_token_expire_minutes: int = 30
+    # Internal server-to-server API key (BFF → AML for /kyc-sync).
+    # When empty, the endpoint accepts calls without key validation (dev/test only).
+    internal_api_key: str = ""
 
     # Celery
     celery_broker_url: str = "redis://localhost:6379/1"

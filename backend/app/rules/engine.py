@@ -77,7 +77,9 @@ class RuleEngine:
         transaction: Transaction,
         account_history: list[Transaction],
         account_history_24h: list[Transaction] | None = None,
+        account_history_7d: list[Transaction] | None = None,
         counterparty_history: list[Transaction] | None = None,
+        agent_history: list[Transaction] | None = None,
     ) -> RuleEngineResult:
         """Run all rules against a transaction.
 
@@ -86,8 +88,12 @@ class RuleEngine:
             account_history: Short-window history (1h) for velocity rules.
             account_history_24h: Longer-window history (24h) for IP-based rules.
                 Falls back to account_history if not provided.
+            account_history_7d: 7-day history for trend rules. Currently accepted
+                for future use; not yet consumed by individual rules.
             counterparty_history: Recent transactions received by the counterparty
                 (used for cross-account structuring detection).
+            agent_history: Recent transactions served by the same agent (24h window).
+                Used for agent-specific fraud rules when actor_type == "agent".
         """
         result = RuleEngineResult()
 
@@ -114,6 +120,12 @@ class RuleEngine:
             )
             if cross_acct is not None:
                 result.results.append(cross_acct)
+
+        # Agent-specific rules (only when actor_type == "agent" and agent history provided)
+        actor = getattr(transaction, "actor_type", None)
+        if actor == "agent" and agent_history is not None:
+            result.results.append(self._check_agent_rapid_transactions(transaction, agent_history))
+            result.results.append(self._check_agent_float_volume(transaction, agent_history))
 
         if result.triggered_rules:
             logger.info(
@@ -406,3 +418,41 @@ class RuleEngine:
                 ),
             )
         return None
+
+    def _check_agent_rapid_transactions(
+        self, tx: Transaction, agent_history: list[Transaction]
+    ) -> RuleResult:
+        """Flag agents processing more transactions than the agent threshold in 1h."""
+        count = len(agent_history)
+        threshold = settings.rapid_transaction_count_agent
+        triggered = count >= threshold
+        severity = min(count / (threshold * 2), 1.0) if triggered else 0.0
+        return RuleResult(
+            rule_name="agent_rapid_transactions",
+            category="agent",
+            triggered=triggered,
+            severity=severity,
+            details=(
+                f"Agent {tx.agent_id} processed {count} transactions in 24h "
+                f"(threshold: {threshold})"
+            ),
+        )
+
+    def _check_agent_float_volume(
+        self, tx: Transaction, agent_history: list[Transaction]
+    ) -> RuleResult:
+        """Flag agents whose 24h float volume suggests imbalance / layering."""
+        total = sum(t.amount for t in agent_history) + tx.amount
+        threshold = settings.agent_float_volume_minimum
+        triggered = total >= threshold
+        severity = min(total / (threshold * 3), 1.0) if triggered else 0.0
+        return RuleResult(
+            rule_name="agent_float_volume",
+            category="agent",
+            triggered=triggered,
+            severity=severity,
+            details=(
+                f"Agent {tx.agent_id} float volume {total:,.0f} XAF in 24h "
+                f"(threshold: {threshold:,.0f} XAF)"
+            ),
+        )
