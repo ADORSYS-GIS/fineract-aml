@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Auth
     secret_key: str = "change-me-in-production"
     access_token_expire_minutes: int = 30
+    # Internal server-to-server API key (BFF → AML for /kyc-sync and /aml-status).
+    # Must be set in production — app refuses to start with the default value.
+    internal_api_key: str = "change-me-in-production"
 
     # Celery
     celery_broker_url: str = "redis://localhost:6379/1"

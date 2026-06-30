@@ -106,6 +106,7 @@ def _build_score_explanation(
 
 async def _analyze(transaction_id: str):
     """Core analysis logic."""
+    from datetime import timedelta
     from uuid import UUID
 
     from sqlalchemy import select
@@ -149,22 +150,55 @@ async def _analyze(transaction_id: str):
         # current transaction's edges are reflected.
         graph_data = await _graph_read(transaction.fineract_account_id)
 
-        # 2. Get account history for feature extraction
+        # 2. Get account history for feature extraction (1h velocity, 24h patterns, 7d trends)
         history_1h = await service.get_account_history(
             transaction.fineract_account_id, window_minutes=60
         )
         history_24h = await service.get_account_history(
             transaction.fineract_account_id, window_minutes=1440
         )
+        history_7d = await service.get_account_history(
+            transaction.fineract_account_id, window_minutes=10080
+        )
+
+        # Fetch agent history when the transaction was submitted by an agent
+        agent_history = []
+        if transaction.actor_type == "agent" and transaction.agent_id:
+            agent_history = await service.get_agent_recent_transactions(
+                transaction.agent_id, window_minutes=1440
+            )
+
+        # Fetch counterparty history for cross-account structuring detection (CEMAC smurfing)
+        counterparty_history = []
+        if transaction.counterparty_account_id:
+            cutoff = transaction.transaction_date - timedelta(hours=24)
+            cp_rows = await db.execute(
+                select(Transaction)
+                .where(
+                    Transaction.counterparty_account_id == transaction.counterparty_account_id,
+                    Transaction.transaction_date >= cutoff,
+                )
+                .limit(200)
+            )
+            counterparty_history = list(cp_rows.scalars().all())
 
         # 3. Extract features (graph features appended only when AML_GRAPH_ENABLED)
         features = FeatureExtractor.extract(
-            transaction, history_1h, history_24h, graph_features=graph_data["features"]
+            transaction, history_1h, history_24h,
+            account_history_7d=history_7d,
+            graph_features=graph_data["features"],
         )
 
-        # 4. Run rule engine (uses 24h history for IP-based rules)
+        # 4. Run rule engine (uses 24h history for IP-based rules, 7d for trends, agent history)
         rule_engine = RuleEngine()
-        rule_result = rule_engine.evaluate(transaction, history_1h, history_24h)
+        rule_result = rule_engine.evaluate(
+            transaction,
+            history_1h,
+            account_history_24h=history_24h,
+            account_history_7d=history_7d,
+            counterparty_history=counterparty_history or None,
+            agent_history=agent_history,
+        )
 
         # Store rule matches
         for match in rule_result.triggered_rules:

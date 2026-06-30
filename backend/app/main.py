@@ -14,6 +14,7 @@ from app.api import (
     cases,
     credit,
     ctrs,
+    customers,
     graph,
     model_health,
     scoring,
@@ -41,6 +42,11 @@ if not settings.debug:
         raise RuntimeError(
             "AML_SECRET_KEY is still set to the default value. "
             "Set a strong JWT signing key before running in production."
+        )
+    if settings.internal_api_key in _insecure_defaults:
+        raise RuntimeError(
+            "AML_INTERNAL_API_KEY is still set to the default value. "
+            "Set a strong server-to-server key before running in production."
         )
 
 # Rate limiter
@@ -82,6 +88,7 @@ app.include_router(alerts.router, prefix=settings.api_prefix)
 app.include_router(cases.router, prefix=settings.api_prefix)
 app.include_router(credit.router, prefix=settings.api_prefix)
 app.include_router(scoring.router, prefix=settings.api_prefix)
+app.include_router(customers.router, prefix=settings.api_prefix)
 app.include_router(graph.router, prefix=settings.api_prefix)
 app.include_router(model_health.router, prefix=settings.api_prefix)
 app.include_router(ctrs.router, prefix=settings.api_prefix)
@@ -120,6 +127,21 @@ async def health_check():
     except Exception as e:
         health["checks"]["redis"] = f"error: {e}"
         health["status"] = "degraded"
+
+    # Check graph DB (only when enabled — ADR 0007)
+    if settings.graph_enabled:
+        try:
+            from app.core.graph import graph_healthcheck
+
+            ok = await graph_healthcheck()
+            if ok:
+                health["checks"]["graph"] = "ok"
+            else:
+                health["checks"]["graph"] = "error: ping failed"
+                health["status"] = "degraded"
+        except Exception as e:
+            health["checks"]["graph"] = f"error: {e}"
+            health["status"] = "degraded"
 
     return health
 

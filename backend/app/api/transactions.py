@@ -46,12 +46,38 @@ async def get_transaction(
     transaction_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a single transaction by ID."""
+    """Get a single transaction by AML internal UUID."""
     service = TransactionService(db)
     transaction = await service.get_transaction(transaction_id)
     if not transaction:
         from fastapi import HTTPException, status
 
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found"
+        )
+    return TransactionResponse.model_validate(transaction)
+
+
+@router.get("/by-fineract-id/{fineract_tx_id}", response_model=TransactionResponse)
+async def get_transaction_by_fineract_id(
+    fineract_tx_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Look up a transaction by its Fineract transaction ID.
+
+    Used by the BFF to poll AML score results after a transaction is submitted
+    (pull-based post-transaction feedback, webank-mobile#139 item 4).
+    """
+    from sqlalchemy import select
+
+    from app.models.transaction import Transaction
+    from fastapi import HTTPException, status
+
+    result = await db.execute(
+        select(Transaction).where(Transaction.fineract_transaction_id == fineract_tx_id)
+    )
+    transaction = result.scalar_one_or_none()
+    if not transaction:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found"
         )
